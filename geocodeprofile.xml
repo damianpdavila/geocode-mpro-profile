@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension version="1.0.0" type="plugin" group="osmembership" method="upgrade">
+	<name>Membership Pro - GeocodeProfile</name>
+	<author>Damian Davila</author>
+	<authorEmail>contact@moventisusa.com</authorEmail>
+	<authorUrl>https://moventisusa.com</authorUrl>
+	<copyright>Copyright (C) 2022 Moventis, LLC</copyright>
+	<license>GNU General Public License version 3, or later</license>
+	<creationDate>Apr 2022</creationDate>
+	<version>1.0.0</version>
+	<description>This plugin adds latitude and longitude to a subscriber's profile when they subscribe for or update a subscription plan. Requires a valid address that Google Maps API can geocode.</description>
+	<files>
+		<filename plugin="geocodeprofile">geocodeprofile.php</filename>
+	</files>
+	<config>
+		<fields name="params">
+			<fieldset name="basic">
+				<field
+						name="add_geo_coding_to_profile"
+						type="radio"
+						label="Add geocoding to subscriber profiles?"
+						description="If set to Yes, the system will add latitude/longitude based on address when subscriber is added or updated."
+						default="1"
+				>
+					<option value="1">JYES</option>
+					<option value="0">JNO</option>
+				</field>
+				<field	name="map_api_key" 
+						type="text" 
+						size="256" 
+						default="" 
+						label="Map API Key" 
+						description="Enter a valid Google Maps Places API key. The key is required to geocode the addresses." 
+				>
+				</field>
+			</fieldset>
+		</fields>
+	</config>
+</extension>
