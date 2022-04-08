@@ -12,3 +12,8 @@ This is a companion product to the practitioner-directory repo.  This plugin pre
 ### Installation
 * Install it as any other Joomla plugin.  One PHP file plus one config XML file, zipped.
 * Activate the plugin, edit it, and enter a valid Google Maps Places API key into the config panel.
+
+## Supporting Feature
+Secondary PHP file can be used to geocode profiles as a standalone pseudo API.
+Accepts Joomla userid as URL param and geocodes it just as the plugin does.
+Originally built to batch update all existing profiles during the initial practitioner map rollout.
