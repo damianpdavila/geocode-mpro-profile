@@ -101,8 +101,23 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 						//do the update
 						$latitude = $output->results[0]->geometry->location->lat;
 						$longitude = $output->results[0]->geometry->location->lng;
-						$this->updateCustomProfileFields($member->id, $latitude, $longitude, $db);
+
+						if ( $this->hasGeocodeCustomProfileFields($member->id, $db) ) 
+						{
+						   $this->updateGeocodeCustomProfileFields($member->id, $latitude, $longitude, $db);
+						} 
+						else 
+						{
+						   $this->insertGeocodeCustomProfileFields($member->id, $latitude, $longitude, $db);
+						}
+		 
 					}
+					else
+					{
+					   $errmsg = 'Geocoding error: ' . $geocode . 'Member: '. json_encode($member);
+					   JLog::add($errmsg, JLog::ERROR, 'jerror');
+					}
+		
 				}
 
 			}
@@ -112,6 +127,42 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 
 	}   
 
+	/** 
+	 * Check if member/subscriber already has geocode custom fields
+	 * 
+	 * @param $id profile id
+	 * 
+	 * @return bool
+	 *
+	 */
+	function hasGeocodeCustomProfileFields($id, $db) {
+
+		$query = $db
+		->getQuery(true)
+		->select($db->quoteName('id'))
+		->from($db->quoteName('#__osmembership_field_value'))
+		->where($db->quoteName('subscriber_id') . ' = ' . $id);
+	
+		$db->setQuery($query);
+	
+		try
+		{
+		$result = $db->loadResult();
+	
+		$rc = empty($result) ? false : true;
+		}
+		catch (Exception $e)
+		{
+		$errmsg = 'Get custom fields error: ' . json_encode($e->getMessage()) . 'ID: '. json_encode($id);
+		JLog::add($errmsg, JLog::ERROR, 'jerror');
+
+		$rc = false;
+		}
+	
+		return $rc;
+	
+	}
+ 
 	/** 
 	 * Update custom profile fields latitude and longitude
 	 * 
@@ -123,7 +174,7 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 	 * @return bool
 	 *
 	 */
-	protected function updateCustomProfileFields($id, $lat, $lng, $db)
+	protected function updateGeocodeCustomProfileFields($id, $lat, $lng, $db)
 	{
 		$query = $db->getQuery(true);
 
@@ -137,23 +188,78 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 			$db->quoteName('subscriber_id') . ' = ' . $id
 		);
 
+		try
+		{
 		$query->clear()
 			->update($db->quoteName('#__osmembership_field_value'))
 			->set($db->quoteName('field_value') . ' = ' . $lat)
 			->where($conditionsLat);
-		$db->setQuery($query);
+			$db->setQuery($query);
 		$db->execute();
 
 		$query->clear()
-			->update($db->quoteName('#__osmembership_field_value'))
-			->set($db->quoteName('field_value') . ' = ' . $lng)
-			->where($conditionsLng);
-		$db->setQuery($query);
+				->update($db->quoteName('#__osmembership_field_value'))
+				->set($db->quoteName('field_value') . ' = ' . $lng)
+				->where($conditionsLng);
+			$db->setQuery($query);
 		$db->execute();
+		}
+		catch (Exception $e)
+		{
+			$errmsg = 'Update latitude failed: ' . json_encode($e->getMessage()) . 'ID: '. json_encode($id);
+			JLog::add($errmsg, JLog::ERROR, 'jerror');
+		}
+   
 
+		return true;
+
+	}
+	/** 
+	 * Insert new custom profile fields latitude and longitude
+	 * 
+	 * @param $id profile id
+	 * @param $lat the updated latitude
+	 * @param $lng the updated longitude
+	 * 
+	 * @return bool
+	 *
+	 */
+	function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
+
+		$customField = new stdClass();
+	
+		$customField->field_id='15';
+		$customField->field_value=$lat;
+		$customField->subscriber_id=$id;   
+		try
+		{
+			$result = $db->insertObject('#__osmembership_field_value', $customField);
+		}
+		catch (Exception $e)
+		{
+			$errmsg = 'Insert latitude failed: ' . json_encode($e->getMessage()) . 'ID: '. json_encode($id);
+			JLog::add($errmsg, JLog::ERROR, 'jerror');
+		}
+	
+		$customField = new stdClass();
+	
+		$customField->field_id='16';
+		$customField->field_value=$lng;
+		$customField->subscriber_id=$id;   
+		try
+		{
+			$result = $db->insertObject('#__osmembership_field_value', $customField);
+		}
+		catch (Exception $e)
+		{
+			$errmsg = 'Insert longitude failed: ' . json_encode($e->getMessage()) . 'ID: '. json_encode($id);
+			JLog::add($errmsg, JLog::ERROR, 'jerror');
+		}
+	
 		return true;
 	
 	}
+ 
 	/**
 	 * Basic CURL helper function
 	 * 
