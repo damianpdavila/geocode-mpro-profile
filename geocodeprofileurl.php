@@ -32,16 +32,22 @@ $db    = Factory::getDbo();
 
 $app = Factory::getApplication();
 $input = $app->input;
-$userId = $input->get('userid', '', 'INTEGER');
 
+$apiKey = $input->get('apikey', '', 'STRING');
+if (! $apiKey) 
+{
+   die('<h1>Error, no API key was specified.</h1>');
+}
+
+$userId = $input->get('userid', '', 'INTEGER');
 if ($userId) 
 {
-   $member = geocodeSubscriber($userId, $db);
-   echo json_encode($member);
+   $rc = geocodeSubscriber($userId, $db, $apiKey);
+   echo '<br/>Geocodesubscriber complete. RC:' . json_encode($rc);
 }
 else 
 {
-   echo '<h1>Error, no userid was specified.</h1>';
+   die('<h1>Error, no userid was specified.</h1>');
 }
 
 
@@ -52,7 +58,7 @@ else
  *
  * @return bool
  */
-function geocodeSubscriber($userId, $db)
+function geocodeSubscriber($userId, $db, $apiKey)
 {
 
    $query = $db->getQuery(true);
@@ -77,7 +83,7 @@ function geocodeSubscriber($userId, $db)
             $address = $member->address.' '.$member->address2.' '.$member->city.', '.$member->state.' '.$member->zip.', '.$member->country;
             $prepAddr = str_replace(' ','+',$address);
             $prepAddr = str_replace('#','%23',$prepAddr);  // hash sign breaks the API call; must be encoded
-            $geocode = http_get_contents('https://maps.googleapis.com/maps/api/geocode/json?address='.$prepAddr.'&sensor=false&key=AIzaSyDBGWMCCxTy1cw16VhIPVJElYaX0Hzpe5w');
+            $geocode = http_get_contents('https://maps.googleapis.com/maps/api/geocode/json?address='.$prepAddr.'&sensor=false&key='.$apiKey);
 
             echo $geocode . '<br/>';
 
@@ -86,8 +92,8 @@ function geocodeSubscriber($userId, $db)
             $latitude = $output->results[0]->geometry->location->lat;
             $longitude = $output->results[0]->geometry->location->lng;
                       
-            if ($output->status == 'OK') {
-
+            if ($output->status == 'OK') 
+            {
                if ( hasGeocodeCustomProfileFields($member->id, $db) ) 
                {
                   echo 'Has geo, updating.  Id: '. $member->id;
@@ -99,10 +105,19 @@ function geocodeSubscriber($userId, $db)
                   insertGeocodeCustomProfileFields($member->id, $latitude, $longitude, $db);
                }
             }
+            else
+            {
+               echo '<br/>API key: ' . $apiKey . '<br/>Member: '. json_encode($member);
+               die('<br/>Geocoding error: ' . $geocode);
+            }
          }
 
       }
 
+   }
+   else 
+   {
+      die('Profile not found');
    }
    return true;
 
@@ -184,6 +199,7 @@ function updateGeocodeCustomProfileFields($id, $lat, $lng, $db) {
    {
       echo $e->getMessage();
       echo $db->getQuery()->dump();
+      die('Update lat failed.');
    }
    
    echo 'Update lat. cond: ' . json_encode($conditionsLat) . ' lat: ' . $lat . ' rc: '. $rc;
@@ -202,6 +218,7 @@ function updateGeocodeCustomProfileFields($id, $lat, $lng, $db) {
    {
       echo $e->getMessage();
       echo $db->getQuery()->dump();
+      die('Update lng failed.');
    }
    
    echo 'Update lng. cond: ' . json_encode($conditionsLng) . ' lng: ' . $lng . ' rc: '. $rc;
@@ -236,6 +253,7 @@ function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
    {
       echo $e->getMessage();
       echo $db->getQuery()->dump();
+      die('Insert lat failed.');
    }
 
    $customField = new stdClass();
@@ -252,6 +270,7 @@ function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
    {
       echo $e->getMessage();
       echo $db->getQuery()->dump();
+      die('Insert lng failed');
    }
 
    return true;
