@@ -43,7 +43,7 @@ $userId = $input->get('userid', '', 'INTEGER');
 if ($userId) 
 {
    $rc = geocodeSubscriber($userId, $db, $apiKey);
-   echo '<br/>Geocodesubscriber complete. RC:' . json_encode($rc);
+   echo json_encode($rc);
 }
 else 
 {
@@ -70,13 +70,16 @@ function geocodeSubscriber($userId, $db, $apiKey)
    $db->setQuery($query);
 
    $profileData = $db->loadObjectList();
-   echo json_encode($profileData) . '<br/>';     
+   //echo json_encode($profileData) . '<br/>';     
 
    if ($profileData)
    {
       foreach ($profileData as $member) 
       {
-         echo json_encode($member) . '<br/>';
+         //echo json_encode($member) . '<br/>';
+
+         $latitude = '';
+         $longitude = '';
 
          if ( ($member->country && $member->city) || ($member->city && $member->state) )
          {
@@ -85,7 +88,7 @@ function geocodeSubscriber($userId, $db, $apiKey)
             $prepAddr = str_replace('#','%23',$prepAddr);  // hash sign breaks the API call; must be encoded
             $geocode = http_get_contents('https://maps.googleapis.com/maps/api/geocode/json?address='.$prepAddr.'&sensor=false&key='.$apiKey);
 
-            echo $geocode . '<br/>';
+            //echo $geocode . '<br/>';
 
             $output = json_decode($geocode);
 
@@ -96,20 +99,25 @@ function geocodeSubscriber($userId, $db, $apiKey)
             {
                if ( hasGeocodeCustomProfileFields($member->id, $db) ) 
                {
-                  echo 'Has geo, updating.  Id: '. $member->id;
+                  //echo 'Has geo, updating.  Id: '. $member->id;
                   updateGeocodeCustomProfileFields($member->id, $latitude, $longitude, $db);
                } 
                else 
                {
-                  echo 'No geo, inserting.  Id: '. $member->id;
+                  //echo 'No geo, inserting.  Id: '. $member->id;
                   insertGeocodeCustomProfileFields($member->id, $latitude, $longitude, $db);
                }
+               $rc = 1;
             }
             else
             {
                echo '<br/>API key: ' . $apiKey . '<br/>Member: '. json_encode($member);
                die('<br/>Geocoding error: ' . $geocode);
             }
+         }
+         else
+         {
+            $rc = 1;
          }
 
       }
@@ -119,7 +127,7 @@ function geocodeSubscriber($userId, $db, $apiKey)
    {
       die('Profile not found');
    }
-   return true;
+   return [ "rc" => $rc, "lat" => $latitude, "lng" => $longitude ];
 
 }   
 
@@ -146,7 +154,7 @@ function hasGeocodeCustomProfileFields($id, $db) {
    {
       $result = $db->loadResult();
 
-      echo 'hasGeo result: '. json_encode($result);
+      //echo 'hasGeo result: '. json_encode($result);
 
       $rc = empty($result) ? false : true;
    }
@@ -202,7 +210,7 @@ function updateGeocodeCustomProfileFields($id, $lat, $lng, $db) {
       die('Update lat failed.');
    }
    
-   echo 'Update lat. cond: ' . json_encode($conditionsLat) . ' lat: ' . $lat . ' rc: '. $rc;
+   //echo 'Update lat. cond: ' . json_encode($conditionsLat) . ' lat: ' . $lat . ' rc: '. $rc;
 
    $query->clear()
       ->update($db->quoteName('#__osmembership_field_value'))
@@ -221,7 +229,7 @@ function updateGeocodeCustomProfileFields($id, $lat, $lng, $db) {
       die('Update lng failed.');
    }
    
-   echo 'Update lng. cond: ' . json_encode($conditionsLng) . ' lng: ' . $lng . ' rc: '. $rc;
+   //echo 'Update lng. cond: ' . json_encode($conditionsLng) . ' lng: ' . $lng . ' rc: '. $rc;
 
    return true;
  
@@ -247,7 +255,7 @@ function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
    try
    {
       $result = $db->insertObject('#__osmembership_field_value', $customField);
-      echo 'Lat insert: '.$result;
+      //echo 'Lat insert: '.$result;
    }
    catch (Exception $e)
    {
@@ -264,7 +272,7 @@ function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
    try
    {
       $result = $db->insertObject('#__osmembership_field_value', $customField);
-      echo 'Lng insert: '.$result;
+      //echo 'Lng insert: '.$result;
    }
    catch (Exception $e)
    {
