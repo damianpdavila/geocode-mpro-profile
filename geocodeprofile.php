@@ -87,9 +87,11 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 			foreach ($profileData as $member) 
 			{
 
-				if ( ($member->country && $member->city) || ($member->city && $member->state) )
+				$addr = $this->getPublicOrPrivateAddress($member, $db);
+
+				if ( ($addr->country && $addr->city) || ($addr->city && $addr->state) )
 				{
-					$address = $member->address.' '.$member->address2.' '.$member->city.', '.$member->state.' '.$member->zip.', '.$member->country;
+					$address = $addr->address.' '.$addr->address2.' '.$addr->city.', '.$addr->state.' '.$addr->zip.', '.$addr->country;
 					$prepAddr = str_replace(' ','+',$address);
 					$prepAddr = str_replace('#','%23',$prepAddr);  // hash sign breaks the API call; must be encoded
 					$apiKey = $this->params->get('map_api_key');
@@ -128,6 +130,88 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 	}   
 
 	/** 
+	 * Retrieve address data based on whether member/subscriber has opted to display public profile data (custom fields) on their public profile.
+	 * e.g., private (standard) fields vs public (custom) fields.
+	 * 
+	 * @param (object) $member member data, $db database reference
+	 * 
+	 * @return (object) $addressData, properties: address, address2, city, state, zip, country
+	 *
+	 */
+	protected function getPublicOrPrivateAddress($member, $db) {
+
+		$addressData = new stdClass();
+
+		$FIELD_ID_ADDRESS = '19';
+		$FIELD_ID_ADDRESS2 = '20';
+		$FIELD_ID_CITY = '21';
+		$FIELD_ID_STATE = '24';
+		$FIELD_ID_ZIP = '22';
+		$FIELD_ID_COUNTRY = '23';
+		$address_field_ids = array(
+			$FIELD_ID_ADDRESS,
+			$FIELD_ID_ADDRESS2,
+			$FIELD_ID_CITY,
+			$FIELD_ID_STATE,
+			$FIELD_ID_ZIP,
+			$FIELD_ID_COUNTRY
+		);
+
+		// If public profile fields have values, use those; otherwise use the private profile data
+		$conditionsAddressFields = array(
+			$db->quoteName('field_id') . ' IN (' . implode(',', $address_field_ids) . ')', 
+			$db->quoteName('subscriber_id') . ' = ' . $member->id
+		);
+
+		$query = $db
+		->getQuery(true)
+		->select('*')
+		->from($db->quoteName('#__osmembership_field_value'))
+		->where($conditionsAddressFields);
+	
+		$db->setQuery($query);
+	
+		try
+		{
+			// return associative array keyed on field type, returning only the field value
+			$row = $db->loadAssocList('field_id', 'field_value');
+			$addressData->address = $row[$FIELD_ID_ADDRESS];
+			$addressData->address2 = $row[$FIELD_ID_ADDRESS2];
+			$addressData->city = $row[$FIELD_ID_CITY];
+			$addressData->state = $row[$FIELD_ID_STATE];
+			$addressData->zip = $row[$FIELD_ID_ZIP];
+			$addressData->country = $row[$FIELD_ID_COUNTRY];
+		}
+		catch (Exception $e)
+		{
+			$errmsg = 'Get custom fields public profile data error: ' . json_encode($e->getMessage()) . 'ID: '. json_encode($id);
+			JLog::add($errmsg, JLog::ERROR, 'jerror');
+			print_r($errmsg);
+			die();
+		}
+
+		if ( ($addressData->country && $addressData->city) || ($addressData->city && $addressData->state) ) 
+		{
+			// use the public profile data
+			;
+		}
+		else
+		{
+			// use private data from member object
+			$addressData->address = $member->address;
+			$addressData->address2 = $member->address2;
+			$addressData->city = $member->city;
+			$addressData->state = $member->state;
+			$addressData->zip = $member->zip;
+			$addressData->country = $member->country;
+
+		}
+		
+		return $addressData;
+	
+	}
+
+	/** 
 	 * Check if member/subscriber already has geocode custom fields
 	 * 
 	 * @param $id profile id
@@ -135,7 +219,7 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 	 * @return bool
 	 *
 	 */
-	function hasGeocodeCustomProfileFields($id, $db) {
+	protected function hasGeocodeCustomProfileFields($id, $db) {
 
 		$query = $db
 		->getQuery(true)
@@ -224,7 +308,7 @@ class plgOSMembershipGeocodeProfile extends JPlugin
 	 * @return bool
 	 *
 	 */
-	function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
+	protected function insertGeocodeCustomProfileFields($id, $lat, $lng, $db) {
 
 		$customField = new stdClass();
 	
